@@ -3,7 +3,7 @@ import numpy as np
 import image as im
 import copy as c
 import classifier as cf
-import random, cv2, glob
+import random, itertools, glob
 
 class environment(object):
     
@@ -64,6 +64,43 @@ class environment(object):
         print "Average Testing Time: {} seconds".format(np.average(testtime))
         print "Average F1 Score: {}".format(np.average(f1))
         
+
+
+
+    # The following is a framework for doing a random gridsearch on a set of parameters and summarizing the results of the grid search 
+    # in a Pandas dataframe in the results.  The first 3 parameters, trainsize, testsize, and sets are the same as in benchmark() above.
+    # The "tries" parameter specifies how many random parameter combinations you want to test.  For example, if there are 1024 possible 
+    # combinations but you only have time to test 100, then set tries = 100. The last 9 parameters correspond to the same Classifier 
+    # parameters specified above but they must be inputted as a list where each list contains all possible values of a particular parameter 
+    # you want to test.  See the iPython notebook for an example.
+
+    
+    def rand_grid_search(self,trainsize,testsize,sets,tries, Clf, Feature_finder,Convert_grey, Rootsift, Pca_before_kmeans, Kclusters, Pca_ratio, Tfidf, Incremental_threshold):
+        allparms = [Clf, Feature_finder,Convert_grey, Rootsift, Pca_before_kmeans, Kclusters, Pca_ratio, Tfidf, Incremental_threshold]
+        iterlist = itertools.product(*allparms)
+        mysplit = self.test_sets(trainsize,testsize,sets)
+        results = pd.DataFrame(columns=['a1','a2','a3','a4','a5','a6','a7','a8','a9','a10','a11','a12'])
+        mylist = []
+        for i in iterlist:
+            mylist.append(i)
+        for p in random.sample(mylist,tries):
+            traintime = []
+            testtime = []
+            f1 = []
+            for (train,test) in mysplit:
+                cf1 = cf.classifier(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8])
+                cf1.incremental_train(train)
+                f1.append(cf1.test(test))
+                traintime.append(cf1.train_time)
+                testtime.append(cf1.test_time)
+            avgtrain = np.average(traintime)
+            avgtest = np.average(testtime)
+            avgf1 = np.average(f1)
+            results = results.append({'a1': avgf1, 'a2': avgtrain, 'a3': avgtest, 'a4': type(p[0]).__name__, 'a5': p[1], 'a6': p[2], 'a7': p[3], 'a8': p[4], 'a9': p[5], 'a10': p[6], 'a11': p[7], 'a12': p[8]},ignore_index = True)
+        results = results.rename(columns={'a1': 'F1', 'a2': 'Avg Train Time', 'a3': 'Avg Test Time', 'a4': 'CLF', 'a5': 'Feature Finder','a6': 'Convert Grey', 'a7': 'RootSIFT','a8':'PCA First','a9': 'K Clusters','a10': 'PCA Ratio','a11': 'TF-IDF', 'a12': 'Incremental Threshold'})
+        results = results.sort_values(by="F1",ascending=False)
+        return results
+
 
     # This is an express function for quickly training a classifier on a set of images to be used immediately for image recognition.  It'll identify the image 
     # category in your set with the least samples and randomly select that many samples from each of your image categories to put together as a training set.

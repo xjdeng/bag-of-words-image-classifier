@@ -1,9 +1,11 @@
 import numpy as np
+import pandas as pd
 import cv2, random
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.decomposition import IncrementalPCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score
+from sklearn.metrics import confusion_matrix
 import time, image, warnings
 
 class classifier(object):
@@ -12,8 +14,8 @@ class classifier(object):
     # clf: sets the actual classifier that will be used for identifying images. This classifier must implement the partial_fit() method. Legal values:
     #   sklearn.naive_bayes.BernoulliNB
     #   sklearn.linear_model.Perceptron
-    #   sklearn.linear_model.SGDClassifier (RECOMMENDED)
-    #   sklearn.linear_model.PassiveAggressiveClassifier
+    #   sklearn.linear_model.SGDClassifier 
+    #   sklearn.linear_model.PassiveAggressiveClassifier (RECOMMENDED)
 
     # feature_finder: A string which specifies the algorithm used to get features from an image. Legal values:
     #   "SIFT": Slowest but most accurate. Creates 128 dimensional feature vectors.
@@ -244,6 +246,32 @@ class classifier(object):
         predictions = self.predict()
         self.test_time = time.time() - self.test_time
         return self.benchmark(answers=answers, predictions=predictions)
+
+    # Takes a list of images and predicts the classes they belong to and generates a Confusion Matrix instead of calculating an F1 score.
+    
+    def confusion_matrix(self, test_cases):
+        self.test_time = time.time()
+        answer_list = []
+        for i in test_cases:
+            answer_list.append(i.category)
+        self.getDescriptors(test_cases)
+        if self.pca_before_kmeans is True:
+            self.PCA_test()
+            self.KMeans_test()
+        else:
+            self.KMeans_test()
+            self.PCA_test()
+        predictions = self.predict()
+        predictions_list = list(predictions)
+        self.test_time = time.time() - self.test_time
+        index = list(set(answer_list + predictions_list))
+        conf = confusion_matrix(answer_list,predictions_list,labels=index)
+        header = []
+        myindex = []
+        for i in index:
+            header.append("Predicted " + i)
+            myindex.append("Actual " + i)
+        return pd.DataFrame(conf,columns=header,index=myindex)
     
     
     # Helper function which takes the descriptors (expressed in histogram form) stored in the classifier and predicts the image classes from them.    
